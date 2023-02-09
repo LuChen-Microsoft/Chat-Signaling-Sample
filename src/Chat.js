@@ -1,18 +1,15 @@
 import React from "react";
-import { ChatClient  } from '@azure/communication-chat';
+import { ChatClient } from '@azure/communication-chat';
 import {
-  AzureCommunicationTokenCredential,
-  parseConnectionString
+    AzureCommunicationTokenCredential,
+    parseConnectionString
 } from "@azure/communication-common";
 import { CommunicationIdentityClient } from "@azure/communication-identity";
-import {ConnectionString} from "./config.js"
+import { ConnectionString } from "./config.js"
 
-
-
-class Chat extends React.Component { 
+class Chat extends React.Component {
     constructor(props) {
         super(props);
-
         this.handleEvent = this.handleEvent.bind(this);
 
         this.createChatClient = this.createChatClient.bind(this);
@@ -36,33 +33,35 @@ class Chat extends React.Component {
             messageId: null,
             events: [],
             event: '',
-            details: ''
+            details: '',
+            connectionString: ''
         };
-        
     }
 
     handleEvent(eventName, details) {
         console.log(`Notification: ${eventName}. Details: ${details}.`);
 
         this.state.events.push(eventName);
-        this.setState({event: eventName});
-        this.setState({details: details});
+        this.setState({ event: eventName });
+        this.setState({ details: details });
     }
 
     async createChatClient() {
-       
-        const endpoint = parseConnectionString(ConnectionString).endpoint;
-        
+        if (!this.state.connectionString) {
+            alert("Please enter a connection string");
+        }
+        const endpoint = parseConnectionString(this.state.connectionString).endpoint;
+
         const identityClient = new CommunicationIdentityClient(ConnectionString);
         const user = await identityClient.createUser();
         const token = await identityClient.getToken(user, ["chat"]);
 
-        const chatClient = new ChatClient(endpoint,new AzureCommunicationTokenCredential(token.token));
+        const chatClient = new ChatClient(endpoint, new AzureCommunicationTokenCredential(token.token));
         console.log(token.token)
-        console.log("Chat Client Created")   
+        console.log("Chat Client Created")
 
-        this.setState({chatClient: chatClient});
-        this.setState({userToken: token.token});
+        this.setState({ chatClient: chatClient });
+        this.setState({ userToken: token.token });
 
         chatClient.on("realTimeNotificationConnected", () => {
             let event = `Real-Time Notification Connected`;
@@ -132,10 +131,10 @@ class Chat extends React.Component {
         const threadId = createChatThreadResult.chatThread ? createChatThreadResult.chatThread.id : "";
         const chatThreadClient = this.state.chatClient.getChatThreadClient(threadId);
 
-        this.setState({threadId: threadId});
-        this.setState({threadClient: chatThreadClient});
-        this.setState({messageId: null});
-        this.setState({lastUser: null});
+        this.setState({ threadId: threadId });
+        this.setState({ threadClient: chatThreadClient });
+        this.setState({ messageId: null });
+        this.setState({ lastUser: null });
     }
 
     async sendChatMessage() {
@@ -145,83 +144,78 @@ class Chat extends React.Component {
         };
         let sendMessageOptions =
         {
-        senderDisplayName : 'Jack',
-        type: 'text',
-        metadata: {
-            'hasAttachment': 'true',
-            'attachmentUrl': 'https://contoso.com/files/attachment.docx'
-        }
+            senderDisplayName: 'Jack',
+            type: 'text',
+            metadata: {
+                'hasAttachment': 'true',
+                'attachmentUrl': 'https://contoso.com/files/attachment.docx'
+            }
         };
         const sendChatMessageResult = await this.state.threadClient.sendMessage(sendMessageRequest, sendMessageOptions);
         const messageId = sendChatMessageResult.id;
-        this.setState({messageId: messageId});
+        this.setState({ messageId: messageId });
         console.log(`Message sent!, message id:${messageId}`);
     }
 
-    async updateChatMessage()
-    {
+    async updateChatMessage() {
         await this.state.threadClient.updateMessage(this.state.messageId, { content: "New content" });
         console.log(`Updated message.`);
     }
 
-    async deleteChatMessage()
-    {
+    async deleteChatMessage() {
         await this.state.threadClient.deleteMessage(this.state.messageId);
-        this.setState({messageId: null});
+        this.setState({ messageId: null });
         console.log("Deleted message.");
     }
 
-    async sendTypingNotification()
-    {
+    async sendTypingNotification() {
         const endpoint = parseConnectionString(ConnectionString).endpoint;
-        
+
         const identityClient = new CommunicationIdentityClient(ConnectionString);
         let token = await identityClient.createUserAndToken(["chat"]);
 
         let addParticipantsRequest = {
             participants: [
-              {
-                id: token.user,
-              }
+                {
+                    id: token.user,
+                }
             ]
-          };
+        };
         await this.state.threadClient.addParticipants(addParticipantsRequest);
 
-        let chatClient = new ChatClient(endpoint,new AzureCommunicationTokenCredential(token.token));
+        let chatClient = new ChatClient(endpoint, new AzureCommunicationTokenCredential(token.token));
         let chatThreadClient = chatClient.getChatThreadClient(this.state.threadId);
 
         await chatThreadClient.sendTypingNotification();
-        this.setState({lastUser: token.user});
+        this.setState({ lastUser: token.user });
         console.log("Send Typing Notification.");
     }
 
-    async sendReadReceipt()
-    {
+    async sendReadReceipt() {
         const endpoint = parseConnectionString(ConnectionString).endpoint;
-        
+
         const identityClient = new CommunicationIdentityClient(ConnectionString);
         let token = await identityClient.createUserAndToken(["chat"]);
 
         let addParticipantsRequest = {
             participants: [
-              {
-                id: token.user,
-              }
+                {
+                    id: token.user,
+                }
             ]
-          };
+        };
         await this.state.threadClient.addParticipants(addParticipantsRequest);
 
-        let chatClient = new ChatClient(endpoint,new AzureCommunicationTokenCredential(token.token));
+        let chatClient = new ChatClient(endpoint, new AzureCommunicationTokenCredential(token.token));
         let chatThreadClient = chatClient.getChatThreadClient(this.state.threadId);
 
-        await chatThreadClient.sendReadReceipt({chatMessageId: this.state.messageId});
-        this.setState({lastUser: token.user});
+        await chatThreadClient.sendReadReceipt({ chatMessageId: this.state.messageId });
+        this.setState({ lastUser: token.user });
 
         console.log("Send Read Receipt.");
     }
 
-    async updateTopic()
-    {
+    async updateTopic() {
         await this.state.threadClient.updateTopic("New Topic");
         console.log(`Updated thread's topic.`);
     }
@@ -229,62 +223,72 @@ class Chat extends React.Component {
     async deleteChatThread() {
         await this.state.chatClient.deleteChatThread(this.state.threadId);
 
-        this.setState({messageId: null});
-        this.setState({threadId: null});
-        this.setState({threadClient: null});
+        this.setState({ messageId: null });
+        this.setState({ threadId: null });
+        this.setState({ threadClient: null });
     }
 
-    async addParticipants(){
+    async addParticipants() {
         const identityClient = new CommunicationIdentityClient(ConnectionString);
         let userSue = await identityClient.createUserAndToken(["chat"]);
         let addParticipantsRequest = {
             participants: [
-              {
-                id: userSue.user,
-                displayName: "Sue"
-              }
+                {
+                    id: userSue.user,
+                    displayName: "Sue"
+                }
             ]
-          };
-          await this.state.threadClient.addParticipants(addParticipantsRequest);
-          this.setState({lastUser: userSue.user});
-          console.log(`Added chat participant user.`);
+        };
+        await this.state.threadClient.addParticipants(addParticipantsRequest);
+        this.setState({ lastUser: userSue.user });
+        console.log(`Added chat participant user.`);
     }
 
-    async removeParticipant(){
+    async removeParticipant() {
         await this.state.threadClient.removeParticipant(this.state.lastUser);
-        this.setState({lastUser: null});
+        this.setState({ lastUser: null });
         console.log("Removed chat participant user.");
     }
 
-    displayUserToken(){
+    displayUserToken() {
         return (<p>User Token: {this.state.userToken}</p>)
     }
 
-    displayThreadId(){
+    displayThreadId() {
         return (<p>Thread ID: {this.state.threadId ?? "NULL"}</p>)
     }
 
-    displaMessageId(){
+    displaMessageId() {
         return (<p>Message ID: {this.state.messageId ?? "NULL"}</p>)
     }
 
-
+    updateInputValue(evt) {
+        const val = evt.target.value;
+        this.setState({
+            connectionString: val
+        });
+    }
     render() {
-        if (this.state.chatClient === null)
-        {
+        if (this.state.chatClient === null) {
             return (
-                <div className="btn-group">                    
+                <div className="btn-group">
+                    <input
+                        value={this.state.connectionString}
+                        type="text"
+                        id="message"
+                        onChange={evt => this.updateInputValue(evt)}
+                        placeholder="Enter the connection string"
+                    />
                     <button onClick={this.createChatClient}>Start!</button>
                 </div>
             );
         }
-        else 
-        {
+        else {
             return (
-                <div> 
+                <div>
                     {this.displayThreadId()}
                     {this.displaMessageId()}
-                    <div className="btn-group">                    
+                    <div className="btn-group">
                         <button onClick={this.createChatThread}>Create Chat Thread</button>
                         <button onClick={this.updateTopic} disabled={this.state.threadId === null}>Update Topic</button>
                         <button onClick={this.sendChatMessage} disabled={this.state.threadId === null}>Send Chat Message</button>
@@ -295,19 +299,18 @@ class Chat extends React.Component {
                         <button onClick={this.removeParticipant} disabled={this.state.threadId === null || this.state.lastUser === null}>Remove Participant</button>
                         <button onClick={this.deleteChatMessage} disabled={this.state.messageId === null}>Delete Chat Message</button>
                         <button onClick={this.deleteChatThread} disabled={this.state.threadId === null}>Delete Chat Thread</button>
-                        
+
                     </div>
                     <div>
                         <div>
-                        <p>New Event : {this.state.event} </p>
+                            <p>New Event : {this.state.event} </p>
                         </div>
                         <div>
                             {this.state.details}
                         </div>
                     </div>
                 </div>
-                
-            )           
+            )
         };
     }
 }
