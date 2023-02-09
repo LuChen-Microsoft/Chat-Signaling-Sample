@@ -5,7 +5,6 @@ import {
     parseConnectionString
 } from "@azure/communication-common";
 import { CommunicationIdentityClient } from "@azure/communication-identity";
-import { ConnectionString } from "./config.js"
 
 class Chat extends React.Component {
     constructor(props) {
@@ -52,7 +51,7 @@ class Chat extends React.Component {
         }
         const endpoint = parseConnectionString(this.state.connectionString).endpoint;
 
-        const identityClient = new CommunicationIdentityClient(ConnectionString);
+        const identityClient = new CommunicationIdentityClient(this.state.connectionString);
         const user = await identityClient.createUser();
         const token = await identityClient.getToken(user, ["chat"]);
 
@@ -169,9 +168,9 @@ class Chat extends React.Component {
     }
 
     async sendTypingNotification() {
-        const endpoint = parseConnectionString(ConnectionString).endpoint;
+        const endpoint = parseConnectionString(this.state.connectionString).endpoint;
 
-        const identityClient = new CommunicationIdentityClient(ConnectionString);
+        const identityClient = new CommunicationIdentityClient(this.state.connectionString);
         let token = await identityClient.createUserAndToken(["chat"]);
 
         let addParticipantsRequest = {
@@ -192,9 +191,9 @@ class Chat extends React.Component {
     }
 
     async sendReadReceipt() {
-        const endpoint = parseConnectionString(ConnectionString).endpoint;
+        const endpoint = parseConnectionString(this.state.connectionString).endpoint;
 
-        const identityClient = new CommunicationIdentityClient(ConnectionString);
+        const identityClient = new CommunicationIdentityClient(this.state.connectionString);
         let token = await identityClient.createUserAndToken(["chat"]);
 
         let addParticipantsRequest = {
@@ -229,7 +228,7 @@ class Chat extends React.Component {
     }
 
     async addParticipants() {
-        const identityClient = new CommunicationIdentityClient(ConnectionString);
+        const identityClient = new CommunicationIdentityClient(this.state.connectionString);
         let userSue = await identityClient.createUserAndToken(["chat"]);
         let addParticipantsRequest = {
             participants: [
