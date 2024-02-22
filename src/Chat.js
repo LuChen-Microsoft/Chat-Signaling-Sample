@@ -6,7 +6,7 @@ import {
 } from "@azure/communication-common";
 import { CommunicationIdentityClient } from "@azure/communication-identity";
 import {ConnectionString} from "./config.js"
-
+const { AzureLogger, setLogLevel } = require("@azure/logger");
 
 
 class Chat extends React.Component { 
@@ -23,6 +23,7 @@ class Chat extends React.Component {
         this.sendTypingNotification = this.sendTypingNotification.bind(this);
         this.sendReadReceipt = this.sendReadReceipt.bind(this);
         this.updateTopic = this.updateTopic.bind(this);
+        this.updateMetadata = this.updateMetadata.bind(this);
         this.deleteChatThread = this.deleteChatThread.bind(this);
         this.addParticipants = this.addParticipants.bind(this);
         this.removeParticipant = this.removeParticipant.bind(this);
@@ -50,19 +51,25 @@ class Chat extends React.Component {
     }
 
     async createChatClient() {
-       
+        setLogLevel("info");
+        // override logging to output to console.log (default location is stderr)
+        AzureLogger.log = (...args) => {
+                console.log(...args); 
+        };
+
         const endpoint = parseConnectionString(ConnectionString).endpoint;
         
         const identityClient = new CommunicationIdentityClient(ConnectionString);
         const user = await identityClient.createUser();
         const token = await identityClient.getToken(user, ["chat"]);
-
-        const chatClient = new ChatClient(endpoint,new AzureCommunicationTokenCredential(token.token));
+        const options = {
+            signalingClientOptions: {environment: "INT"}
+        };
+        const chatClient = new ChatClient(endpoint,new AzureCommunicationTokenCredential(token.token), options);
         console.log(token.token)
         console.log("Chat Client Created")   
 
         this.setState({chatClient: chatClient});
-        this.setState({userToken: token.token});
 
         chatClient.on("realTimeNotificationConnected", () => {
             let event = `Real-Time Notification Connected`;
@@ -78,6 +85,7 @@ class Chat extends React.Component {
 
         chatClient.on("chatThreadCreated", (e) => {
             let event = `Chat Thread Created.`;
+            console.log(e.properties.retentionPolicy ?? "NULL");
             this.handleEvent(event, JSON.stringify(e));
         });
 
@@ -118,6 +126,7 @@ class Chat extends React.Component {
 
         chatClient.on("participantsAdded", (e) => {
             let event = `Participants Added.`;
+            console.log(e.participantsAdded[0].metadata);
             this.handleEvent(event, JSON.stringify(e));
         });
 
@@ -128,7 +137,19 @@ class Chat extends React.Component {
     };
 
     async createChatThread() {
-        const createChatThreadResult = await this.state.chatClient.createChatThread({ topic: "Hello, World!" });
+        function onResponse(rawResponse) {
+            // log the raw response
+            console.log(rawResponse)
+        };
+
+        const request = { topic: "Hello, World!" };
+        const options = {
+            requestOptions: {
+                customHeaders: {"access-control-expose-headers": "*"}
+            },
+            onResponse: onResponse
+        };
+        const createChatThreadResult = await this.state.chatClient.createChatThread(request, options);
         const threadId = createChatThreadResult.chatThread ? createChatThreadResult.chatThread.id : "";
         const chatThreadClient = this.state.chatClient.getChatThreadClient(threadId);
 
@@ -160,7 +181,7 @@ class Chat extends React.Component {
 
     async updateChatMessage()
     {
-        await this.state.threadClient.updateMessage(this.state.messageId, { content: "New content" });
+        await this.state.threadClient.updateMessage(this.state.messageId, { metadata: {"testvalue" : "testvalue"} });
         console.log(`Updated message.`);
     }
 
@@ -226,6 +247,14 @@ class Chat extends React.Component {
         console.log(`Updated thread's topic.`);
     }
 
+    async updateMetadata()
+    {
+        await this.state.threadClient.updateProperties({
+            metadata: { threadType: "secondary" },
+        });
+        console.log(`Updated thread's metadata.`);
+    }
+
     async deleteChatThread() {
         await this.state.chatClient.deleteChatThread(this.state.threadId);
 
@@ -241,7 +270,10 @@ class Chat extends React.Component {
             participants: [
               {
                 id: userSue.user,
-                displayName: "Sue"
+                displayName: "Sue",
+                metadata: {
+                    "userType": "C2"
+                }
               }
             ]
           };
@@ -287,6 +319,7 @@ class Chat extends React.Component {
                     <div className="btn-group">                    
                         <button onClick={this.createChatThread}>Create Chat Thread</button>
                         <button onClick={this.updateTopic} disabled={this.state.threadId === null}>Update Topic</button>
+                        <button onClick={this.updateMetadata} disabled={this.state.threadId === null}>Update Metadata</button>
                         <button onClick={this.sendChatMessage} disabled={this.state.threadId === null}>Send Chat Message</button>
                         <button onClick={this.sendReadReceipt} disabled={this.state.messageId === null}>Send Read Receipt</button>
                         <button onClick={this.updateChatMessage} disabled={this.state.messageId === null}>Update Chat Message</button>
