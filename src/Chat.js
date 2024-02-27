@@ -24,6 +24,7 @@ class Chat extends React.Component {
         this.sendReadReceipt = this.sendReadReceipt.bind(this);
         this.updateTopic = this.updateTopic.bind(this);
         this.updateMetadata = this.updateMetadata.bind(this);
+        this.updateRetentionPolicy = this.updateRetentionPolicy.bind(this);
         this.deleteChatThread = this.deleteChatThread.bind(this);
         this.addParticipants = this.addParticipants.bind(this);
         this.removeParticipant = this.removeParticipant.bind(this);
@@ -51,7 +52,7 @@ class Chat extends React.Component {
     }
 
     async createChatClient() {
-        setLogLevel("info");
+        setLogLevel("verbose");
         // override logging to output to console.log (default location is stderr)
         AzureLogger.log = (...args) => {
                 console.log(...args); 
@@ -63,7 +64,7 @@ class Chat extends React.Component {
         const user = await identityClient.createUser();
         const token = await identityClient.getToken(user, ["chat"]);
         const options = {
-            signalingClientOptions: {environment: "INT"}
+            // signalingClientOptions: {environment: "INT"}
         };
         const chatClient = new ChatClient(endpoint,new AzureCommunicationTokenCredential(token.token), options);
         console.log(token.token)
@@ -144,6 +145,11 @@ class Chat extends React.Component {
 
         const request = { topic: "Hello, World!" };
         const options = {
+            retentionPolicy: {
+                kind: "threadCreationDate",
+                deleteThreadAfterDays: 90,
+            },
+
             requestOptions: {
                 customHeaders: {"access-control-expose-headers": "*"}
             },
@@ -152,6 +158,9 @@ class Chat extends React.Component {
         const createChatThreadResult = await this.state.chatClient.createChatThread(request, options);
         const threadId = createChatThreadResult.chatThread ? createChatThreadResult.chatThread.id : "";
         const chatThreadClient = this.state.chatClient.getChatThreadClient(threadId);
+
+        console.log(`Created thread. ${JSON.stringify(createChatThreadResult.chatThread)}`);
+        
 
         this.setState({threadId: threadId});
         this.setState({threadClient: chatThreadClient});
@@ -255,6 +264,15 @@ class Chat extends React.Component {
         console.log(`Updated thread's metadata.`);
     }
 
+    async updateRetentionPolicy()
+    {
+        await this.state.threadClient.updateProperties({
+            retentionPolicy: null,
+        });
+        const thread = await this.state.threadClient.getProperties();
+        console.log(`Updated thread's retention policy. ${JSON.stringify(thread)}`);
+    }
+
     async deleteChatThread() {
         await this.state.chatClient.deleteChatThread(this.state.threadId);
 
@@ -320,6 +338,7 @@ class Chat extends React.Component {
                         <button onClick={this.createChatThread}>Create Chat Thread</button>
                         <button onClick={this.updateTopic} disabled={this.state.threadId === null}>Update Topic</button>
                         <button onClick={this.updateMetadata} disabled={this.state.threadId === null}>Update Metadata</button>
+                        <button onClick={this.updateRetentionPolicy} disabled={this.state.threadId === null}>Update RetentionPolicy</button>
                         <button onClick={this.sendChatMessage} disabled={this.state.threadId === null}>Send Chat Message</button>
                         <button onClick={this.sendReadReceipt} disabled={this.state.messageId === null}>Send Read Receipt</button>
                         <button onClick={this.updateChatMessage} disabled={this.state.messageId === null}>Update Chat Message</button>
